@@ -1,0 +1,175 @@
+---
+title: "Stafgildi í Skrafli"
+author: "Stefán Ingi Valdimarsson"
+date: "8. maí 2015"
+output: html_document
+---
+
+Hér verður leitast við að greina hvaða stafgildi hver stafur ætti að hafa í
+Skrafli og hver ætti að vera fjöldi hvers stafs í pokanum.
+
+# Aðferðafræði
+
+Sterkasti þjarkurinn í Netskraflinu (http://netskrafl.is) er látinn spila á móti
+sjálfum sér oft og mörgum sinnum. Þannig er útbúið gagnasafn sem er hægt að nota
+til að greina hvort stafgildin séu heppilega valin. Kóðinn fyrir þessu er á github,
+hlekkur verður settur inn þegar kóðinn er kominn í aðalskjalageymsluna.
+
+# Núverandi stafgildi
+
+## Lýsing gagna
+
+Skráin `log0002.json` inniheldur upplýsingar um 3000 leiki. Upplýsingar úr henni
+eru lesnar inn í gagnarammann game.data. Í þeim ramma eru eftirfarandi dálkar:
+
+* _Game.number:_ Númer leiks
+* _Player:_ Heiti leikmanns, APA eða APB
+* _Played.first:_ Átti leikmaðurinn fyrsta leik
+* _Is.winner:_ Vann leikmaðurinn (eða gerði jafntefli)
+* _Is.tie:_ Varð jafntefli
+* _Points:_ Fjöldi stiga sem leikmaðurinn fékk, þar með talin stig vegna afgangsstafa
+* _Any.returned:_ Var stöfum einhvern tímann skilað í leiknum
+* _First.returned:_ Var stöfum skilað í fyrsta leik hjá leikmanninum sem átti fyrst að gera
+* _Non.first.returned:_ Var stöfum skilað síðar en í fyrsta leik hjá leikmanninum sem átti fyrst að gera
+* _a-ö:_ Fjöldi taflna af hverjum staf sem leikmaðurinn dró, ef einhverjum töflum er skilað þá eru þær tvítaldar í leiknum.
+* _q:_ Fjöldi auðra stafataflna sem leikmaðurinn dró, ef einhverjum töflum er skilað þá eru þær tvítaldar í leiknum.
+
+```{r load data, echo=FALSE, cache=TRUE, results='hide', warning=FALSE, message=FALSE}
+library(plyr)
+library(jsonlite)
+log0002 = fromJSON("log0002.json", simplifyVector = F)
+
+letters = "aábdðeéfghiíjklmnoóprstuúvxyýþæöq"
+letters.vec = strsplit(letters, "")[[1]]
+letters.list = rep(list(0), times=length(letters.vec))
+names(letters.list) <- letters.vec
+letters.df = as.data.frame(letters.list)
+
+parse.game.log = function(game.log) {
+  out = data.frame(Game.number=integer(0), Player=character(0), Played.first=logical(0), Is.winner=logical(0), Is.tie=logical(0), Points=integer(0), Any.returned=logical(0))
+  levels(out$Player) = c("APA", "APB")
+  out[[1,'Player']]='APA'
+  out[[2,'Player']]='APB'
+  out$Any.returned = F
+  out$First.returned = F
+  out$Non.first.returned = F
+  out = data.frame(out, letters.df)
+  out[out$Player==game.log[[1]][['Player']],'Played.first']=T
+  out[out$Player!=game.log[[1]][['Player']],'Played.first']=F
+  num.move = 0
+  for (i in 1:length(game.log)) {
+    if (game.log[[i]]$Type == "D") {
+      if (game.log[[i]][["Tile"]]=="?") {
+        mytile = "q"
+      } else {
+        Encoding(game.log[[i]]$Tile) <- "UTF-8"
+        mytile = game.log[[i]][["Tile"]]
+      }
+      out[out$Player==game.log[[i]][['Player']],mytile] =
+        out[out$Player==game.log[[i]][['Player']],mytile] + 1
+    } else if (game.log[[i]]$Type == "P") {
+      num.move = num.move + 1
+      if (substr(game.log[[i]]$Move,1,4) == "EXCH") {
+        out[,'Any.returned'] = T
+        if (num.move == 1) {
+          out[,'First.returned'] = T
+        } else {
+          out[,'Non.first.returned'] = T
+        }
+      }
+    } else if (game.log[[i]]$Type == "R") {
+      #out[,'Any.returned'] = T
+    } else if (game.log[[i]]$Type == "F") {
+      for (j in 1:2) {
+        out[out$Player==game.log[[i]][['Result']][[j]][['Player']],"Points"] = game.log[[i]][['Result']][[j]][['Points']]
+      }
+      if (out$Points[[1]]>out$Points[[2]]) {
+        out$Is.winner = c(T,F)
+        out$Is.tie = F
+      } else if (out$Points[[1]]<out$Points[[2]]) {
+        out$Is.winner = c(F,T)
+        out$Is.tie = F
+      } else {
+        out$Is.winner = T
+        out$Is.tie = T
+      }
+    }
+  }
+  out
+}
+
+game.data = ldply(log0002, function(x) {ret=parse.game.log(x$game_log); ret$Game.number=x$game_number; ret})
+game.data$Sigurvegari = factor(ifelse(game.data$Is.winner, "Já", "Nei"), levels=c("Já", "Nei"))
+```
+
+## Áhrif stafsins ú
+
+Eftirfarandi mynd sýnir úrslit leikja brotin niður eftir fjölda ú-a sem
+leikmaður fékk.
+
+```{r effect of ú graph, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+ggplot(filter(game.data, Any.returned==F), aes(x=Points, fill=Sigurvegari)) +
+  geom_histogram(binwidth=10, position = "dodge") +
+  facet_grid(`ú` ~ .) +
+  xlab("Stig") +
+  ylab("Fjöldi ú-a") +
+  ggtitle("Stigafjöldi og sigurvegari eftir fjölda ú-a") +
+  scale_fill_manual(values=c("Já"="blue", "Nei"="red"))
+```
+
+Greinilegt er af mynd að það að draga ú-ið er vænlegra til sigurs.
+
+```{r effect of ú calculations, echo=FALSE}
+summary.ú.1 = game.data %>% filter(Any.returned==F & `ú`== 1) %>% group_by(Is.winner) %>% summarize(count=n())
+my.p.hat = with(summary.ú.1, {count[Is.winner==T]/sum(count)})
+my.sd.hat = with(summary.ú.1, {sqrt(count[Is.winner==T]*count[Is.winner==F]/sum(count)^3)})
+my.z = (my.p.hat-0.5)/my.sd.hat
+my.p = 2*pnorm(-abs(my.z))
+my.upper = my.p.hat + my.sd.hat * qnorm(0.995)
+my.lower = my.p.hat + my.sd.hat * qnorm(0.005)
+```
+
+Nánar tiltekið eru metin líkindi þess að leikmaður sigri ef hann dregur ú
+`r format(my.p.hat*100, decimal.mark = ",", digits=3)`% og 99% öryggisbil
+fyrir raunverulegu líkindin er [`r format(my.lower*100, decimal.mark = ",", digits=3)`%, `r format(my.upper*100, decimal.mark = ",", digits=3)`%].
+
+## Áhrif auðu taflnanna
+
+Eftirfarandi mynd sýnir úrslit leikja brotin niður eftir fjölda auðra taflna sem
+leikmaður fékk.
+
+```{r effect of q graph, echo=FALSE, results='hide'}
+library(ggplot2)
+library(dplyr)
+ggplot(filter(game.data, Any.returned==F), aes(x=Points, fill=Sigurvegari)) +
+  geom_histogram(binwidth=10, position = "dodge") +
+  facet_grid(`q` ~ .) +
+  xlab("Stig") +
+  ylab("Fjöldi auðra taflna") +
+  ggtitle("Stigafjöldi og sigurvegari eftir fjölda auðra taflna") +
+  scale_fill_manual(values=c("Já"="blue", "Nei"="red"))
+```
+
+Greinilegt er af mynd að það að fá báðar auðu töflurnar eykur líkur á sigri gífurlega.
+
+```{r effect of q calculations, echo=FALSE}
+summary.q.2 = game.data %>% filter(Any.returned==F & `q`== 2) %>% group_by(Is.winner) %>% summarize(count=n())
+my.p.hat = with(summary.q.2, {count[Is.winner==T]/sum(count)})
+my.sd.hat = with(summary.q.2, {sqrt(count[Is.winner==T]*count[Is.winner==F]/sum(count)^3)})
+my.z = (my.p.hat-0.5)/my.sd.hat
+my.p = 2*pnorm(-abs(my.z))
+my.upper = my.p.hat + my.sd.hat * qnorm(0.995)
+my.lower = my.p.hat + my.sd.hat * qnorm(0.005)
+```
+
+Nánar tiltekið eru metin líkindi þess að leikmaður sigri ef hann dregur báðar
+auðu töflurnar
+`r format(my.p.hat*100, decimal.mark = ",", digits=3)`% og 99% öryggisbil
+fyrir raunverulegu líkindin er [`r format(my.lower*100, decimal.mark = ",", digits=3)`%, `r format(my.upper*100, decimal.mark = ",", digits=3)`%].
+
+## Niðurstöður
+
+Það má velta fyrir sér hvort það þjóni tilgangi að fikta með stafgildin þegar
+áhrifin af auðu töflunum eru svona gífurleg.
