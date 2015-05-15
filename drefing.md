@@ -15,7 +15,7 @@
 |     8 |   PÚ |      |      |      |      |      |      |      |      |      |       2 |
 |     9 |    Ý |      |      |      |      |      |      |      |      |      |       1 |
 |    10 |    X |      |      |      |      |      |      |      |      |      |       1 |
-|Samtals|   12 |    6 |    5 |    1 |    2 |    3 |    1 |    2 |    0 |    1 |104 / 123|
+|Samtals|   12 |    6 |    5 |    1 |    2 |    3 |    1 |    2 |    0 |    1 |104 / 227|
 
 ## Form á nýrri dreifingu
 
@@ -34,6 +34,6 @@
 |     8 |   XX |      |      |      |      |      |      |      |      |      |       2 |
 |     9 |   XX |      |      |      |      |      |      |      |      |      |       2 |
 |    10 |   XX |      |      |      |      |      |      |      |      |      |       2 |
-|Samtals|   10 |    7 |    2 |    2 |    2 |    2 |    2 |    2 |    2 |    2 |128 / 126|
+|Samtals|   10 |    7 |    2 |    2 |    2 |    2 |    2 |    2 |    2 |    2 |128 / 256|
 
-Við sjáum að heildarstig í pokanum eru nánast óbreytt (126 í stað 123) en töflunum hefur fjölgað allt of mikið (128 í stað 104).
+Við sjáum að heildarstigum í pokanum hefur fjölgað (256 í stað 227) og töflunum hefur fjölgað líka (128 í stað 104).
