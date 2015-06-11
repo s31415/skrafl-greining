@@ -169,6 +169,39 @@ auðu töflurnar
 `r format(my.p.hat*100, decimal.mark = ",", digits=3)`% og 99% öryggisbil
 fyrir raunverulegu líkindin er [`r format(my.lower*100, decimal.mark = ",", digits=3)`%, `r format(my.upper*100, decimal.mark = ",", digits=3)`%].
 
+## Áhrif þess að gera fyrst
+
+Eftirfarandi mynd sýnir úrslit leikja brotin niður eftir því hvort leikmaður gerir fyrst eða ekki.
+
+```{r effect of first graph, echo=FALSE, results='hide'}
+library(ggplot2)
+library(dplyr)
+game.data$Gerir.fyrst = factor(ifelse(game.data$Played.first, "Já", "Nei"), levels=c("Já", "Nei"))
+ggplot(filter(game.data, Any.returned==F), aes(x=Points, fill=Sigurvegari)) +
+  geom_histogram(binwidth=10, position = "dodge") +
+  facet_grid(Gerir.fyrst ~ .) +
+  xlab("Stig") +
+  ylab("Leikmaður gerir fyrst") +
+  ggtitle("Stigafjöldi og sigurvegari eftir því hver gerir fyrst") +
+  scale_fill_manual(values=c("Já"="blue", "Nei"="red"))
+```
+
+Ekki er mjög greinilegt af mynd hvort það að gera fyrst hefur veruleg áhrif á sigurlíkur.
+
+```{r effect of first calculations, echo=FALSE}
+summary.first = game.data %>% filter(Any.returned==F & Played.first== TRUE) %>% group_by(Is.winner) %>% summarize(count=n())
+my.p.hat = with(summary.first, {count[Is.winner==T]/sum(count)})
+my.sd.hat = with(summary.first, {sqrt(count[Is.winner==T]*count[Is.winner==F]/sum(count)^3)})
+my.z = (my.p.hat-0.5)/my.sd.hat
+my.p = 2*pnorm(-abs(my.z))
+my.upper = my.p.hat + my.sd.hat * qnorm(0.995)
+my.lower = my.p.hat + my.sd.hat * qnorm(0.005)
+```
+
+En metin líkindi þess að leikmaður sigri ef hann gerir fyrst eru
+`r format(my.p.hat*100, decimal.mark = ",", digits=3)`% og 99% öryggisbil
+fyrir raunverulegu líkindin er [`r format(my.lower*100, decimal.mark = ",", digits=3)`%, `r format(my.upper*100, decimal.mark = ",", digits=3)`%].
+
 ## Niðurstöður
 
 Það má velta fyrir sér hvort það þjóni tilgangi að fikta með stafgildin þegar
